@@ -1,0 +1,109 @@
+#!/bin/bash
+
+# skips most edge-case tests if set to 1
+SKIP=${SKIP:-"0"}
+
+echo -e "\n### btrsnap help"
+DRY_RUN=1 btrsnap help
+if [ "$SKIP" -eq 0 ]; then
+    echo -e "\n### btrsnap -h"
+    DRY_RUN=1 btrsnap -h
+fi
+
+# env
+echo -e "\n### btrsnap env"
+DRY_RUN=1 btrsnap env
+
+# list
+echo -e "\n### btrsnap l -t"
+DRY_RUN=1 btrsnap l -t
+if [ "$SKIP" -eq 0 ]; then
+    echo -e "\n### btrsnap l -h"
+    DRY_RUN=1 btrsnap l -h
+    echo -e "\n### btrsnap l -v"
+    DRY_RUN=1 btrsnap l -v
+    echo -e "\n### btrsnap l -s"
+    DRY_RUN=1 btrsnap l -s
+    echo -e "\n### btrsnap l --mode 1"
+    DRY_RUN=1 btrsnap l --mode 1
+    echo -e "\n### btrsnap l -t --mode 0"
+    DRY_RUN=1 btrsnap l -t --mode 0
+fi
+
+# create
+if [ "$SKIP" -eq 0 ]; then
+    echo -e "\n### btrsnap c -h"
+    DRY_RUN=1 btrsnap c -h
+    echo -e "\n### btrsnap create"
+    DRY_RUN=1 btrsnap create
+    echo -e "\n### btrsnap c -f %Y%M"
+    DRY_RUN=1 btrsnap c -f %Y%M
+    echo -e "\n### btrsnap c -f iso-8601=seconds"
+    DRY_RUN=1 btrsnap c -f iso-8601=seconds
+    echo -e "\n### btrsnap c -v"
+    DRY_RUN=1 btrsnap c -v
+    echo -e "\n### btrsnap c -b /snappies"
+    DRY_RUN=1 btrsnap c -b /snappies
+    echo -e "\n### btrsnap c -b snappies"
+    DRY_RUN=1 btrsnap c -b snappies
+    echo -e "\n### btrsnap c -v -m \"Some special snapshot\" -b /snaps / root"
+    DRY_RUN=1 btrsnap c -v -m "Some special snapshot" -b /snaps / root
+    echo -e "\n### btrsnap c -v / /snapshots/root"
+    DRY_RUN=1 btrsnap c -v / /snapshots/root
+    echo -e "\n### btrsnap c -v /etc etc"
+    DRY_RUN=1 btrsnap c -v /etc etc
+    echo -e "\n### btrsnap c -v --mode 1"
+    DRY_RUN=1 btrsnap c -v --mode 1
+fi;
+
+# diff
+echo -e "\n###  touch /test_file.txt"
+echo "###  btrsnap c -f \"prev\" / test"
+echo "###  echo \"TEST CONTENT\" >> /test_file.txt"
+echo "#### btrsnap diff /snapshots/test/prev 0"
+echo "###  btrsnap rm /snapshots/test/prev"
+echo "###  rm /test_file.txt"
+touch /test_file.txt
+btrsnap c -f "prev" / test &>/dev/null
+echo "TEST CONTENT" >> /test_file.txt
+btrsnap diff /snapshots/test/prev 0
+btrsnap rm /snapshots/test/prev &>/dev/null
+rm /test_file.txt
+if [ "$SKIP" -eq 0 ]; then
+    echo -e "\n### btrsnap d -h"
+    DRY_RUN=1 btrsnap d -h
+    echo -e "\n### btrsnap d | head -n 30"
+    btrsnap l &> /dev/null
+    btrsnap d | head -n 30
+    echo -e "\n###  touch /test_file.txt"
+    echo "###  btrsnap c -f \"prev\" / test"
+    echo "###  echo \"TEST CONTENT\" >> /test_file.txt"
+    echo "#### btrsnap d -f /test_file.txt test/prev"
+    echo "###  btrsnap rm /snapshots/test/prev"
+    echo "###  rm /test_file.txt"
+    touch /test_file.txt
+    btrsnap c -f "prev" / test &>/dev/null
+    echo "TEST CONTENT" >> /test_file.txt
+    btrsnap d -f /test_file.txt test/prev
+    btrsnap rm /snapshots/test/prev &>/dev/null
+    rm /test_file.txt
+fi
+
+# delete
+if [ "$SKIP" -eq 0 ]; then
+    echo -e "\n### btrsnap c -f \"current\" / /snapshots/test"
+    echo "#### btrsnap rm test/current"
+    btrsnap c -f "current" / /snapshots/test
+    btrsnap rm test/current
+    echo -e "\n### btrsnap c -f \"current\" / /snapshots/test"
+    echo "#### btrsnap rm /snapshots/test/current"
+    btrsnap c -f "current" / /snapshots/test
+    btrsnap rm /snapshots/test/current
+    echo -e "\n### btrsnap c -f \"current\" / /snapshots/test"
+    echo "#### btrsnap rm"
+    btrsnap c -f "current" / /snapshots/test
+    btrsnap rm
+    echo "#### btrsnap rm -1"
+    btrsnap c -f "current" / /snapshots/test
+    btrsnap rm -1
+fi
