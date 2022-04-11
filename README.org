@@ -1,0 +1,47 @@
+#+AUTHOR: phdenzel
+#+TITLE: btrsnap
+#+DATE: 2022-04-12 Tue
+#+OPTIONS: author:nil title:t date:nil timestamp:nil toc:nil num:nil \n:nil
+
+#+begin_src shell
+Usage: btrsnap <subcommand> [options]
+
+Subcommands:
+    e(nv)
+        - Print all environment variables
+
+    l(ist) [options] <source>
+        - List all snapshots (and updates logs)
+
+    i(nfo) [options] [snapshot]
+        - Print info about specific snapshot (wrapper for btrfs subvol show)
+
+    c(reate) [options] [src] [target]
+        - Create a snapshot in the target directory
+
+    r(e)m(ove) [options] [snapshot]
+        - Delete specific snapshots
+
+    s(crub) [options] [target]: NotYetImplemented
+        - Scrub/remove unimportant snapshots
+
+    d(iff) [options] [snapshot-a] [snapshot-b]
+        - Show diffs between two snapshots
+
+    u(ndo) <snapshot> <file>: NotYetImplemented
+        - Undo changes to a specific file from a snapshot
+
+    r(estore) [options]: NotYetImplemented
+        - Restore the filesystem to a former snapshot
+
+For help with each subcommand run:
+    btrsnap <subcommand> -h|--help
+
+The current basedir for btrsnap is BTRSNAP_BASEDIR=/snapshots
+If arguments are given as relative paths, the BTRSNAP_BASEDIR variable
+is used as base path, otherwise it is ignored.
+
+btrsnap configuration and logs are in
+    - .btrsnap/btrsnap.conf
+    - .btrsnap/btrsnap.log
+#+end_src
