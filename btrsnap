@@ -9,8 +9,7 @@
 #     Export BTRSNAP_CONF in your .bashrc pointing to an existing file where
 #     you configure btrsnap to your specifications.
 # TODO:
-#     - add indices to snapshots for ease-of-input
-#     - add readable/writeable status to log/listing
+#     - btrsnap-remove: *, mode selection
 #     - finish the rest
 
 PROGNAME=$(basename $0)
@@ -42,25 +41,22 @@ sub_help() {
     echo "    e(nv)"
     echo "        - Print all environment variables"
     echo ""
-    echo "    l(ist) [options] <source>"
+    echo "    l(ist) [options] [source]"
     echo "        - List all snapshots (and updates logs)"
     echo ""
     echo "    i(nfo) [options] [snapshot]"
     echo "        - Print info about specific snapshot (wrapper for btrfs subvol show)"
     echo ""
-    echo "    c(reate) [options] [src] [target]"
+    echo "    c(reate) [options] [source] [target]"
     echo "        - Create a snapshot in the target directory"
     echo ""
     echo "    r(e)m(ove) [options] [snapshot]"
     echo "        - Delete specific snapshots"
     echo ""
-    echo "    s(crub) [options] [target]: NotYetImplemented"
-    echo "        - Scrub/remove unimportant snapshots"
-    echo ""
     echo "    d(iff) [options] [snapshot-a] [snapshot-b]"
     echo "        - Show diffs between two snapshots"
     echo ""
-    echo "    u(ndo) <snapshot> <file>: NotYetImplemented"
+    echo "    u(ndo) <file> [snapshot]"
     echo "        - Undo changes to a specific file from a snapshot"
     echo ""
     echo "    r(estore) [options]: NotYetImplemented"
@@ -80,7 +76,7 @@ sub_help() {
 }
 
 list_help() {
-    echo "Usage: $PROGNAME-list [options] <source>"
+    echo "Usage: $PROGNAME-list [options] [source]"
     echo ""
     echo "List all $PROGNAME snapshots of a btrfs subvolume <source> (default: '/')"
     echo ""
@@ -100,6 +96,9 @@ list_help() {
     echo "-b, --basedir <path>"
     echo "               Change the $PROGNAME base directory (default: $BTRSNAP_BASEDIR')"
     echo ""
+    echo "-r, --readonly"
+    echo "               Only list snapshots which are read-only"
+    echo ""
     echo "--mode <integer>"
     echo "               Mode in which the snapshot is created"
     echo "               0:manual; 1:hourly; 2:daily; 3:monthly; 4:yearly"
@@ -107,7 +106,7 @@ list_help() {
 }
 
 info_help() {
-    echo "Usage: $PROGNAME-info [options] <source>"
+    echo "Usage: $PROGNAME-info [options] [source]"
     echo ""
     echo "Show info of any btrfs <subvolume> (default: '/') or <snapshot index>"
     echo "(wrapper for btrfs subvolume show)"
@@ -125,7 +124,7 @@ info_help() {
 }
 
 create_help() {
-    echo "Usage: $PROGNAME-create [options] <source> [target]"
+    echo "Usage: $PROGNAME-create [options] [source] [target]"
     echo ""
     echo "Create a snapshot of a source btrfs subvolume <source> (default: '/')"
     echo "in the target directory <target> (default: '$BTRSNAP_BASEDIR/$BTRSNAP_TARGET/')"
@@ -172,10 +171,14 @@ remove_help() {
     echo "-b, --basedir <path>"
     echo "               Change the $PROGNAME base directory (default: $BTRSNAP_BASEDIR')"
     echo ""
+    echo "--mode <integer>"
+    echo "               Filter all snapshots of given mode (default: all)"
+    echo "               0:manual; 1:hourly; 2:daily; 3:monthly; 4:yearly"
+    echo ""
 }
 
 diff_help() {
-    echo "Usage: $PROGNAME-diff [options] <snapshot-a> <snapshot-b>"
+    echo "Usage: $PROGNAME-diff [options] [snapshot-a] [snapshot-b]"
     echo ""
     echo "Show differences between a snapshot and another one"
     echo ""
@@ -191,13 +194,15 @@ diff_help() {
 }
 
 undo_help() {
-    echo "Usage: $PROGNAME-undo [options] <file> <snapshot>"
+    echo "Usage: $PROGNAME-undo [options] <file> [snapshot]"
     echo ""
     echo "Restore a file from a snapshot"
     echo ""
     echo "-h, --help     Display this help text"
     echo ""
     echo "-v, --verbose  Print action info to the command-line"
+    echo ""
+    echo "-n, --dry-run  Run command, but perform no actions"
     echo ""
     echo "-b, --basedir <path>"
     echo "               Change the $PROGNAME base directory (default: $BTRSNAP_BASEDIR')"
@@ -210,6 +215,24 @@ is-btrfs-subvolume() {
     # Check whether input is a btrfs subvolume
     # Args: path
     btrfs subvolume show $1 &>/dev/null;
+}
+
+btrsnap-cwd() {
+    # Get subvolume of current working directory
+    btrsnap_pwd="$(pwd)"
+    fallback_counter=${1:-10}
+    while [ ! -z "$btrsnap_pwd" ] && [ "$fallback_counter" -gt 1 ]; do
+        is-btrfs-subvolume $btrsnap_pwd && break
+        btrsnap_pwd=$(dirname $btrsnap_pwd)
+        fallback_counter=$(( $fallback_counter - 1 ))
+        # [ "$btrsnap_pwd" = "/" ] && break
+    done
+    echo "$btrsnap_pwd"
+}
+
+btrsnap-cwd-alt() {
+    btrsnap_pwd="$(pwd)"
+    echo "$(stat --format=%m $btrsnap_pwd)"
 }
 
 btrsnap-alist() {
@@ -329,9 +352,9 @@ filter-logs() {
                     '{fmt="%s"; for(i=2;i<=NF;i++){fmt=fmt",%s"}; fmt=fmt"\n";
                       printf(fmt, $1, $2, $3, $4, $5, $6, $7)}')"
     # source filter
-    LOG_DATA="$(echo "${LOG_DATA}" | \
-                   awk -F',' -v source="$2"\
-                       '{if ($3==source) {print $0}}')"
+    [ ! -z "$2" ] && LOG_DATA="$(echo "${LOG_DATA}" | \
+                                 awk -F',' -v source="$2"\
+                                     '{if ($3==source) {print $0}}')"
     # --simple
     [ "$3" -lt 0 ] && \
         LOG_DATA="$(echo "${LOG_DATA}" | awk -F',' '{printf("%s\n", $2)}')" && \
@@ -402,6 +425,7 @@ sub_list() {
     OUTPUT_FORMAT=0
     BTRSNAP_WRITABLE=1
     BTRSNAP_MODE="all"
+    BTRSNAP_SRC=""
     # Parse subcommand options and arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -644,6 +668,7 @@ sub_c() {
 ### btrsnap remove
 sub_remove() {
     BTRSNAP_TARGET=""
+    BTRSNAP_MODE="all"
     # Parse subcommand options and arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -666,6 +691,17 @@ sub_remove() {
                 else
                     BTRSNAP_BASEDIR="$1"
                 fi
+                shift
+                ;;
+            "--mode")
+                shift
+                case $1 in
+                    0) BTRSNAP_MODE='manual';;
+                    1) BTRSNAP_MODE='hourly';;
+                    2) BTRSNAP_MODE='daily';;
+                    3) BTRSNAP_MODE='monthly';;
+                    4) BTRSNAP_MODE='yearly';;
+                esac
                 shift
                 ;;
             *)
@@ -734,6 +770,7 @@ sub_diff() {
             "-f" | "--file")
                 shift
                 FILE_QUERY=$1
+                [[ ! $FILE_QUERY = /* ]] && FILE_QUERY=$(pwd)/$FILE_QUERY
                 shift
                 ;;
             "-b" | "--basedir")
@@ -772,11 +809,15 @@ sub_diff() {
     else
         [[ ! $SNAPSHOT_B = /* ]] && SNAPSHOT_B="$BTRSNAP_BASEDIR/$SNAPSHOT_B";
     fi
+    # Print out info
+    [ "$VERBOSE" -eq 1 ] && echo -e "Config:\t$BTRSNAP_CONF"
+    [ "$VERBOSE" -eq 1 ] && echo -e "Log:   \t$BTRSNAP_LOG"
     # show file diff or snapshot diff
     if [ "$FILE_QUERY" ]; then
-        echo "diff \"$SNAPSHOT_A/$FILE_QUERY\" \"$SNAPSHOT_B/$FILE_QUERY\""
-        diff "$SNAPSHOT_A/$FILE_QUERY" "$SNAPSHOT_B/$FILE_QUERY";
+        echo -e "btrsnap-diff:\t$SNAPSHOT_A$FILE_QUERY <-> $SNAPSHOT_B$FILE_QUERY"
+        diff "$SNAPSHOT_A$FILE_QUERY" "$SNAPSHOT_B$FILE_QUERY";
     else
+        echo -e "btrsnap-diff:\t$SNAPSHOT_A <-> $SNAPSHOT_B"
         btrfs send --no-data -p "$SNAPSHOT_A" "$SNAPSHOT_B" | \
             btrfs receive --dump | grep update_extent
     fi;
@@ -791,16 +832,19 @@ sub_d() {
 
 ### btrsnap undo
 sub_undo() {
-    echo "Not yet implemented"
     # Parse subcommand options and arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             "-h" | "--help")
-                diff_help
+                undo_help
                 exit 0
                 ;;
             "-v" | "--verbose")
                 VERBOSE=1
+                shift
+                ;;
+            "-n" | "--dry-run")
+                DRY_RUN=1
                 shift
                 ;;
             "-b" | "--basedir")
@@ -814,6 +858,7 @@ sub_undo() {
                 ;;
             *)
                 FILE_QUERY="$1"
+                [[ ! $FILE_QUERY = /* ]] && FILE_QUERY=$(pwd)/$FILE_QUERY
                 shift
                 SNAPSHOT_A="$1"
                 shift
@@ -828,8 +873,20 @@ sub_undo() {
     declare -A snapshots && btrsnap-alist snapshots
     indices=("${!snapshots[@]}")
     [ -z "$SNAPSHOT_A" ] && SNAPSHOT_A="${indices[0]}"
-    echo "$FILE_QUERY"
-    echo "$SNAPSHOT_A"
+    [ "${snapshots[$SNAPSHOT_A]}" ] && SNAPSHOT_A="${snapshots[$SNAPSHOT_A]}"
+    btrsnap_pwd=$(btrsnap-cwd)
+    UNDO_FROM="$(echo "$SNAPSHOT_A$FILE_QUERY" | sed "s#$btrsnap_pwd##g")"
+    UNDO_TO="$FILE_QUERY"
+    echo -e "btrsnap-undo:\t$UNDO_FROM -> $UNDO_TO"
+    [ "$DRY_RUN" -eq 1 ] && return 0
+    if [ -d "$UNDO_FROM" ]; then
+        # echo "rsync -a --delete $UNDO_FROM $UNDO_TO"
+        rsync -a --delete $UNDO_FROM/ $UNDO_TO/
+    elif [ -f "$UNDO_FROM" ]; then
+        # echo "cp $UNDO_FROM $UNDO_TO"
+        cp $UNDO_FROM $UNDO_TO
+    fi
+    
 }
 
 sub_u() {
