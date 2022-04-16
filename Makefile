@@ -1,21 +1,18 @@
-PREFIX ?= $(HOME)/local/btrsnap
+PREFIX ?= $(HOME)/local/bin
 
 all:
-	@echo Run \'make install\' to install Neofetch.
+	@echo Run \'make install\' to install btrsnap.
 
 install:
-	@mkdir -p $(DESTDIR)$(PREFIX)/bin
-	@mkdir -p $(HOME)/local/bin
-	@cp -p btrsnap $(DESTDIR)$(PREFIX)/bin/btrsnap
-	@chmod 755 $(DESTDIR)$(PREFIX)/bin/btrsnap
-	@ln -sf $(DESTDIR)$(PREFIX)/bin/btrsnap $(HOME)/local/bin/btrsnap
+	@mkdir -p $(PREFIX)
+	@cp -p btrsnap $(PREFIX)/
+	@chmod 755 $(PREFIX)/btrsnap
 
 test:
-	sudo SKIP=1 test_btrsnap
+	sudo SKIP=1 ./test_btrsnap
 
 test-all:
-	sudo test_btrsnap
+	sudo ./test_btrsnap
 
-clean:
-	@rm -rf $(DESTDIR)$(PREFIX)/bin
-	@rm $(HOME)/local/bin/btrsnap
+uninstall:
+	@rm $(PREFIX)/btrsnap
