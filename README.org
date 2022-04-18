@@ -4,7 +4,7 @@
 #+OPTIONS: author:nil title:t date:nil timestamp:nil toc:nil num:nil \n:nil
 
 #+begin_src shell
-Usage: btrsnap <subcommand> [options]
+Usage: sudo btrsnap <subcommand> [options]
 
 Subcommands:
     e(nv)
@@ -14,7 +14,7 @@ Subcommands:
         - List all snapshots (and updates logs)
 
     i(nfo) [options] [snapshot]
-        - Print info about specific snapshot (wrapper for btrfs subvol show)
+        - Print info about a specific snapshot (wrapper for btrfs subvol show)
 
     c(reate) [options] [source] [target]
         - Create a snapshot in the target directory
@@ -22,16 +22,13 @@ Subcommands:
     r(e)m(ove) [options] [snapshot]
         - Delete specific snapshots
 
-    s(crub) [options] [target]: NotYetImplemented
-        - Scrub/remove unimportant snapshots
-
     d(iff) [options] [snapshot-a] [snapshot-b]
         - Show diffs between two snapshots
 
     u(ndo) <file> [snapshot]
         - Undo changes to a specific file from a snapshot
 
-    r(estore) [options]: NotYetImplemented
+    r(estore) [options] [snapshot] [subvolume]
         - Restore the filesystem to a former snapshot
 
 For help with each subcommand run:
@@ -44,5 +41,4 @@ is used as base path, otherwise it is ignored.
 btrsnap configuration and logs are in
     - .btrsnap/btrsnap.conf
     - .btrsnap/btrsnap.log
-
 #+end_src
