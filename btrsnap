@@ -9,9 +9,10 @@
 #     Export BTRSNAP_CONF in your .bashrc/.zshrc pointing to an existing file
 #     where you configure btrsnap to your specifications.
 # Note:
-#     As of now, snapshots have to reside on the same btrfs device
+#     For now, snapshots have to reside on the same btrfs device
 # TODO:
 #     - btrsnap-remove: *, mode selection
+#     - add btrsnap-scrub
 #     - compatibility with external devices/drives
 #       (for external devices you need to use btrfs send/receive
 #        and `btrfs property set` ro to false)
@@ -32,6 +33,12 @@ BTRSNAP_TIMEFORMAT=${BTRSNAP_TIMEFORMAT:-"+%y%m%dT%H:%M:%S.%2N"}
 BTRSNAP_WARNINGS=${BTRSNAP_WARNINGS:-1}
 DRY_RUN=${DRY_RUN:-0}
 VERBOSE=${VERBOSE:-0}
+
+BTRSNAP_MANUAL_LIMIT=${BTRSNAP_MANUAL_LIMIT:-12}
+BTRSNAP_WEEKLY_LIMIT=${BTRSNAP_WEEKLY_LIMIT:-8}
+BTRSNAP_DAILY_LIMIT=${BTRSNAP_DAILY_LIMIT:-7}
+BTRSNAP_HOURLY_LIMIT=${BTRSNAP_HOURLY_LIMIT:-4}
+BTRSNAP_YEARLY_LIMIT=${BTRSNAP_YEARLY_LIMIT:-4}
 
 # Constants
 BTRSNAP_LOG_COLUMNS='#,Snapshot,Source,Time,Flags,Mode,Description'
@@ -66,6 +73,9 @@ sub_help() {
     echo ""
     echo "    r(estore) [options] [snapshot] [subvolume]"
     echo "        - Restore the filesystem to a former snapshot"
+    echo ""
+    echo "    s(crub) [options] [source]"
+    echo "        - Scrub the oldest snapshots above the limits"
     echo ""
     echo "For help with each subcommand run:"
     echo "    $PROGNAME <subcommand> -h|--help"
@@ -239,6 +249,26 @@ restore_help() {
     echo "-r, --rsync    Use rsync as snapshot restore method"
     echo ""
     echo "-c, --cp       Use cp as snapshot restore method"
+    echo ""
+}
+
+scrub_help() {
+    echo "Usage: sudo $PROGNAME-scrub [options] [source]"
+    echo ""
+    echo "Scrub the oldest snapshots above the limits"
+    echo ""
+    echo "-h, --help     Display this help text"
+    echo ""
+    echo "-v, --verbose  Print action info to the command-line"
+    echo ""
+    echo "-n, --dry-run  Run command, but perform no actions"
+    echo ""
+    echo "-b, --basedir <path>"
+    echo "               Change the $PROGNAME base directory (default: $BTRSNAP_BASEDIR')"
+    echo ""
+    echo "--mode <integer>"
+    echo "               Scrub only snapshots of given mode (default: all)"
+    echo "               0:manual; 1:hourly; 2:daily; 3:monthly; 4:yearly"
     echo ""
 }
 
@@ -425,7 +455,7 @@ filter-logs() {
                     awk -F',' \
                         '{if ($5=="r") {print $0} }')"
     # --mode filter
-    [ "$BTRSNAP_MODE" = 'all' ] ||
+    [ "$5" = 'all' ] ||
         LOG_DATA="$(echo "${LOG_DATA}" | \
                     awk -F',' -v mode="$5" \
                         '{if ($6==mode) {print $0} }')"
@@ -457,6 +487,36 @@ print-logs() {
     [ "$HEADER_LINE" -eq 1 ] && echo "$LINE"
     echo "$OUTPUT"
     [ "$FOOTER_LINE" -eq 1 ] && echo "$LINE"
+}
+
+blacklist-logs() {
+    # Blacklist log entries for scrubbing
+    # Args: LOG_DATA BTRSNAP_MODE
+    local limit=0
+    local N_btrsnaps=0
+    local delta=0
+    [ "$(echo "$1")" ] && N_btrsnaps="$(echo "$1" | wc -l)"
+    case "$2" in
+        "manual")
+            limit=$BTRSNAP_MANUAL_LIMIT
+            ;;
+        "hourly")
+            limit=$BTRSNAP_HOURLY_LIMIT
+            ;;
+        "daily")
+            limit=$BTRSNAP_DAILY_LIMIT
+            ;;
+        "monthly")
+            limit=$BTRSNAP_MONTHLY_LIMIT
+            ;;
+        "yearly")
+            limit=$BTRSNAP_YEARLY_LIMIT
+            ;;
+    esac
+    delta=$(( N_btrsnaps - limit ))
+    if [ "$delta" -gt 0 ]; then
+        echo "$1" | head -n $delta | cut -d"," -f1
+    fi;
 }
 
 
@@ -695,7 +755,7 @@ sub_create() {
     [[ ! $BTRSNAP_TARGET = /* ]] && BTRSNAP_TARGET=$BTRSNAP_BASEDIR/$BTRSNAP_TARGET
     BTRSNAP_TARGET=$BTRSNAP_TARGET/$BTRSNAP_TITLE
     [ "$BTRSNAP_WRITABLE" -eq 0 ] && FLAGS="-r" || FLAGS=""
-     [ "$BTRSNAP_WRITABLE" -eq 0 ] && BTRSNAP_RW="r" || BTRSNAP_RW="rw"
+    [ "$BTRSNAP_WRITABLE" -eq 0 ] && BTRSNAP_RW="r" || BTRSNAP_RW="rw"
     BTRSNAP_ENTRY="$BTRSNAP_TARGET --- $BTRSNAP_SRC --- $BTRSNAP_STARTTIME --- $BTRSNAP_RW --- $BTRSNAP_MODE --- $BTRSNAP_MESSAGE"
     # Print out info
     [ "$VERBOSE" -eq 1 ] && echo -e "Config:\t$BTRSNAP_CONF"
@@ -800,16 +860,6 @@ sub_remove() {
 
 sub_rm() {
     sub_remove "$@";
-}
-
-
-### btrsnap scrub
-sub_scrub() {
-    echo "Not yet implemented"
-}
-
-sub_s() {
-    sub_scrub "$@";
 }
 
 
@@ -1027,6 +1077,7 @@ sub_restore() {
     case $RESTORE_MODE in
         0)
             [ "$DRY_RUN" -eq 1 ] && return 0
+            # echo "btrfs subvolume delete $SUBVOLUME"
             # echo "btrfs subvolume snapshot $SNAPSHOT $SUBVOLUME"
             btrfs subvolume delete $SUBVOLUME 2>&1 1>/dev/null
             btrfs subvolume snapshot $SNAPSHOT $SUBVOLUME 2>&1 1>/dev/null
@@ -1051,7 +1102,93 @@ sub_r() {
 }
 
 
+### btrsnap scrub
+sub_scrub() {
+    BTRSNAP_MODE="all"
+    BTRSNAP_SRC=""
+    declare -a scrub_list
+    # Parse subcommand options and arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            "-h" | "--help")
+                remove_help
+                exit 0
+                ;;
+            "-v" | "--verbose")
+                VERBOSE=1
+                shift
+                ;;
+            "-n" | "--dry-run")
+                DRY_RUN=1
+                shift
+                ;;
+            "-b" | "--basedir")
+                shift
+                if [[ ! $1 = /* ]]; then
+                    BTRSNAP_BASEDIR=$(pwd)/$1
+                else
+                    BTRSNAP_BASEDIR="$1"
+                fi
+                shift
+                ;;
+            "--mode")
+                shift
+                case $1 in
+                    0) BTRSNAP_MODE='manual';;
+                    1) BTRSNAP_MODE='hourly';;
+                    2) BTRSNAP_MODE='daily';;
+                    3) BTRSNAP_MODE='monthly';;
+                    4) BTRSNAP_MODE='yearly';;
+                esac
+                shift
+                ;;
+            *)
+                BTRSNAP_SRC="$1"
+                shift
+                ;;
+        esac
+    done
+    # Sanatize defaults
+    [[ ! $BTRSNAP_CONF = /* ]] && [ ! -f "$BTRSNAP_CONF" ] && BTRSNAP_CONF=$BTRSNAP_BASEDIR/$BTRSNAP_CONF
+    [[ ! $BTRSNAP_LOG = /* ]] && [ ! -f "$BTRSNAP_LOG" ] && BTRSNAP_LOG=$BTRSNAP_BASEDIR/$BTRSNAP_LOG
+    # print out info
+    [ "$VERBOSE" -eq 1 ] && echo -e "Config:\t$BTRSNAP_CONF"
+    [ "$VERBOSE" -eq 1 ] && echo -e "Log:   \t$BTRSNAP_LOG"
+    # validate and filter logs
+    CONTROL="$(btrfs subvolume list -s /)"
+    LOG_DATA="$(cat $BTRSNAP_LOG)"
+    validate-logs "$LOG_DATA" "$CONTROL"
+    if [ "$BTRSNAP_MODE" = "all" ]; then
+        for mode in {'manual','hourly','daily','monthly','yearly'}; do
+            LOG_DATA="$(load-logs $BTRSNAP_LOG)";
+            filter-logs "$LOG_DATA" "$BTRSNAP_SRC" 0 1 "$mode"
+            scrub_list+=($(blacklist-logs "$LOG_DATA" "$mode"))
+        done
+    else
+        LOG_DATA="$(load-logs $BTRSNAP_LOG)"
+        filter-logs "$LOG_DATA" "$BTRSNAP_SRC" 0 1 "$BTRSNAP_MODE"
+        scrub_list+=($(blacklist-logs "$LOG_DATA" "$BTRSNAP_MODE"))
+    fi;
+    LOG_DATA="$(load-logs $BTRSNAP_LOG)"
+    declare -A snapshots && btrsnap-alist snapshots
+    indices=("${!snapshots[@]}")
+    for i in "${scrub_list[@]}"; do
+        echo "$i"
+    done
+}
+
+sub_s() {
+    sub_scrub "$@";
+}
+
+
 # Main
+if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+    echo -e "Please run $PROGNAME with sudo priviliges\n"
+    sub_help
+    exit 1
+fi
+
 SUBCMD=$1
 case $SUBCMD in
     "-h" | "--help")
