@@ -40,7 +40,7 @@ BTRSNAP_LOG_COLUMNS='#,Snapshot,Source,Time,Flags,Mode,Description'
 
 ### Help functions
 sub_help() {
-    echo "Usage: $PROGNAME <subcommand> [options]"
+    echo "Usage: sudo $PROGNAME <subcommand> [options]"
     echo ""
     echo "Subcommands:"
     echo "    e(nv)"
@@ -81,7 +81,7 @@ sub_help() {
 }
 
 list_help() {
-    echo "Usage: $PROGNAME-list [options] [subvolume]"
+    echo "Usage: sudo $PROGNAME-list [options] [subvolume]"
     echo ""
     echo "List all $PROGNAME snapshots of a btrfs subvolume (default: '/')"
     echo ""
@@ -111,7 +111,7 @@ list_help() {
 }
 
 info_help() {
-    echo "Usage: $PROGNAME-info [options] [subvolume|snapshot]"
+    echo "Usage: sudo $PROGNAME-info [options] [subvolume|snapshot]"
     echo ""
     echo "Show info of any btrfs subvolume (default: '/') or snapshot (or its index)"
     echo "(wrapper for btrfs subvolume show)"
@@ -129,7 +129,7 @@ info_help() {
 }
 
 create_help() {
-    echo "Usage: $PROGNAME-create [options] [subvolume] [target]"
+    echo "Usage: sudo $PROGNAME-create [options] [subvolume] [target]"
     echo ""
     echo "Create a snapshot of a source btrfs subvolume (default: '/')"
     echo "in the target directory (default: '$BTRSNAP_BASEDIR/$BTRSNAP_TARGET/')"
@@ -163,7 +163,7 @@ create_help() {
 }
 
 remove_help() {
-    echo "Usage: $PROGNAME-remove [options] [snapshot]"
+    echo "Usage: sudo $PROGNAME-remove [options] [snapshot]"
     echo ""
     echo "Delete a specific snapshot"
     echo ""
@@ -183,7 +183,7 @@ remove_help() {
 }
 
 diff_help() {
-    echo "Usage: $PROGNAME-diff [options] [snapshot-a] [snapshot-b]"
+    echo "Usage: sudo $PROGNAME-diff [options] [snapshot-a] [snapshot-b]"
     echo ""
     echo "Show differences between two snapshots"
     echo ""
@@ -199,7 +199,7 @@ diff_help() {
 }
 
 undo_help() {
-    echo "Usage: $PROGNAME-undo [options] <file> [snapshot]"
+    echo "Usage: sudo $PROGNAME-undo [options] <file> [snapshot]"
     echo ""
     echo "Restore a file from a snapshot"
     echo ""
@@ -215,7 +215,7 @@ undo_help() {
 }
 
 restore_help() {
-    echo "Usage: $PROGNAME-restore [options] [snapshot] [subvolume]"
+    echo "Usage: sudo $PROGNAME-restore [options] [snapshot] [subvolume]"
     echo ""
     echo "Restore an entire btrfs subvolume from a snapshot (default: latest)"
     echo "(or its index)"
