@@ -6,11 +6,16 @@
 #     BTRSNAP_CONF, BTRSNAP_LOG, BTRSNAP_BASEDIR, BTRSNAP_SRC, BTRSNAP_TARGET,
 #     BTRSNAP_MODE, BTRSNAP_WRITABLE, BTRSNAP_TIMEFORMAT, BTRSNAP_WARNINGS
 # Recommended use:
-#     Export BTRSNAP_CONF in your .bashrc pointing to an existing file where
-#     you configure btrsnap to your specifications.
+#     Export BTRSNAP_CONF in your .bashrc/.zshrc pointing to an existing file
+#     where you configure btrsnap to your specifications.
+# Note:
+#     As of now, snapshots have to reside on the same btrfs device
 # TODO:
 #     - btrsnap-remove: *, mode selection
-#     - finish the rest
+#     - compatibility with external devices/drives
+#       (for external devices you need to use btrfs send/receive
+#        and `btrfs property set` ro to false)
+#     - add systemd timers and pacman hooks to automatically run btrsnap
 
 PROGNAME=$(basename $0)
 
@@ -45,7 +50,7 @@ sub_help() {
     echo "        - List all snapshots (and updates logs)"
     echo ""
     echo "    i(nfo) [options] [snapshot]"
-    echo "        - Print info about specific snapshot (wrapper for btrfs subvol show)"
+    echo "        - Print info about a specific snapshot (wrapper for btrfs subvol show)"
     echo ""
     echo "    c(reate) [options] [source] [target]"
     echo "        - Create a snapshot in the target directory"
@@ -59,7 +64,7 @@ sub_help() {
     echo "    u(ndo) <file> [snapshot]"
     echo "        - Undo changes to a specific file from a snapshot"
     echo ""
-    echo "    r(estore) [options]: NotYetImplemented"
+    echo "    r(estore) [options] [snapshot] [subvolume]"
     echo "        - Restore the filesystem to a former snapshot"
     echo ""
     echo "For help with each subcommand run:"
@@ -76,9 +81,9 @@ sub_help() {
 }
 
 list_help() {
-    echo "Usage: $PROGNAME-list [options] [source]"
+    echo "Usage: $PROGNAME-list [options] [subvolume]"
     echo ""
-    echo "List all $PROGNAME snapshots of a btrfs subvolume <source> (default: '/')"
+    echo "List all $PROGNAME snapshots of a btrfs subvolume (default: '/')"
     echo ""
     echo "-h, --help     Display this help text"
     echo ""
@@ -106,9 +111,9 @@ list_help() {
 }
 
 info_help() {
-    echo "Usage: $PROGNAME-info [options] [source]"
+    echo "Usage: $PROGNAME-info [options] [subvolume|snapshot]"
     echo ""
-    echo "Show info of any btrfs <subvolume> (default: '/') or <snapshot index>"
+    echo "Show info of any btrfs subvolume (default: '/') or snapshot (or its index)"
     echo "(wrapper for btrfs subvolume show)"
     echo ""
     echo "-h, --help     Display this help text"
@@ -124,10 +129,10 @@ info_help() {
 }
 
 create_help() {
-    echo "Usage: $PROGNAME-create [options] [source] [target]"
+    echo "Usage: $PROGNAME-create [options] [subvolume] [target]"
     echo ""
-    echo "Create a snapshot of a source btrfs subvolume <source> (default: '/')"
-    echo "in the target directory <target> (default: '$BTRSNAP_BASEDIR/$BTRSNAP_TARGET/')"
+    echo "Create a snapshot of a source btrfs subvolume (default: '/')"
+    echo "in the target directory (default: '$BTRSNAP_BASEDIR/$BTRSNAP_TARGET/')"
     echo ""
     echo "-h, --help     Display this help text"
     echo ""
@@ -160,7 +165,7 @@ create_help() {
 remove_help() {
     echo "Usage: $PROGNAME-remove [options] [snapshot]"
     echo ""
-    echo "Delete targeted snapshot"
+    echo "Delete a specific snapshot"
     echo ""
     echo "-h, --help     Display this help text"
     echo ""
@@ -180,7 +185,7 @@ remove_help() {
 diff_help() {
     echo "Usage: $PROGNAME-diff [options] [snapshot-a] [snapshot-b]"
     echo ""
-    echo "Show differences between a snapshot and another one"
+    echo "Show differences between two snapshots"
     echo ""
     echo "-h, --help     Display this help text"
     echo ""
@@ -209,6 +214,34 @@ undo_help() {
     echo ""
 }
 
+restore_help() {
+    echo "Usage: $PROGNAME-restore [options] [snapshot] [subvolume]"
+    echo ""
+    echo "Restore an entire btrfs subvolume from a snapshot (default: latest)"
+    echo "(or its index)"
+    echo ""
+    echo "-h, --help     Display this help text"
+    echo ""
+    echo "-v, --verbose  Print action info to the command-line"
+    echo ""
+    echo "-n, --dry-run  Run command, but perform no actions"
+    echo ""
+    echo "-b, --basedir <path>"
+    echo "               Change the $PROGNAME base directory (default: $BTRSNAP_BASEDIR')"
+    echo ""
+    echo "-d, --device <integer>"
+    echo "               Choose the way the snapshot is restored (default: 1)"
+    echo "               0: snapshot utility; 1: rsync; 2: cp"
+    echo ""
+    echo "-s, --snapshot"
+    echo "               Use btrfs snapshot utility as snapshot restore method"
+    echo ""
+    echo "-r, --rsync    Use rsync as snapshot restore method"
+    echo ""
+    echo "-c, --cp       Use cp as snapshot restore method"
+    echo ""
+}
+
 
 ### Utility functions
 is-btrfs-subvolume() {
@@ -219,6 +252,7 @@ is-btrfs-subvolume() {
 
 btrsnap-cwd() {
     # Get subvolume of current working directory
+    # Args: fallback_counter
     btrsnap_pwd="$(pwd)"
     fallback_counter=${1:-10}
     while [ ! -z "$btrsnap_pwd" ] && [ "$fallback_counter" -gt 1 ]; do
@@ -231,11 +265,13 @@ btrsnap-cwd() {
 }
 
 btrsnap-cwd-alt() {
+    # Get subvolume of current working directory (alternative to btrsnap-cwd)
     btrsnap_pwd="$(pwd)"
     echo "$(stat --format=%m $btrsnap_pwd)"
 }
 
 btrsnap-alist() {
+    # An associative list of indices -> snapshots
     # Usage: declare -A <alist-name> && btrsnap-alist <alist-name>
     # Note: Do not use alist as <alist-name>!
     local data
@@ -249,7 +285,24 @@ btrsnap-alist() {
     done
 }
 
+btrsnap-src-alist() {
+    # An associative list of snapshots -> source
+    # Usage: declare -A <alist-name> && btrsnap-src-alist <alist-name>
+    # Note: Do not use alist as <alist-name>!
+    local data
+    declare -n alist="$1"
+    [ ! -f  $BTRSNAP_LOG ] && return 0
+    data="$(cat $BTRSNAP_LOG)"
+    btrsnap_paths=($(echo "$data" | awk -F' --- ' '{print $1}'))
+    btrsnap_srcs=($(echo "$data" | awk -F' --- ' '{print $2}'))
+    for i in "${!btrsnap_paths[@]}"; do
+        # echo "${btrsnap_paths[$i]} ${btrsnap_srcs[$i]}"
+        alist["${btrsnap_paths[$i]}"]="${btrsnap_srcs[$i]}"
+    done
+}
+
 reverse-alist() {
+    # Reverse an associative list from keys -> values to values -> keys
     # Usage: declare -A <revlist-name> && reverse-alist <revlist-name> <alist-name>
     # Note: Do not use revlist as <revlist-name>!
     declare -n revlist="$1"
@@ -259,6 +312,13 @@ reverse-alist() {
     done
 }
 
+btrsnap-get-source() {
+    # Getter for the source of a snapshot (pulls info from $BTRSNAP_LOG)
+    # Args: SNAPSHOT
+    declare -A sources && btrsnap-src-alist sources
+    [ "${sources[$1]}" ] && echo "${sources[$1]}" && return 0
+    echo "$BTRSNAP_SRC"
+}
 
 ### Log functions
 load-logs() {
@@ -860,22 +920,21 @@ sub_undo() {
                 FILE_QUERY="$1"
                 [[ ! $FILE_QUERY = /* ]] && FILE_QUERY=$(pwd)/$FILE_QUERY
                 shift
-                SNAPSHOT_A="$1"
+                SNAPSHOT="$1"
                 shift
                 ;;
         esac
     done
-    
     # sanatize defaults
     [[ ! $BTRSNAP_CONF = /* ]] && [ ! -f "$BTRSNAP_CONF" ] && BTRSNAP_CONF=$BTRSNAP_BASEDIR/$BTRSNAP_CONF
     [[ ! $BTRSNAP_LOG = /* ]] && [ ! -f "$BTRSNAP_LOG" ] && BTRSNAP_LOG=$BTRSNAP_BASEDIR/$BTRSNAP_LOG
     # handle input as index
     declare -A snapshots && btrsnap-alist snapshots
     indices=("${!snapshots[@]}")
-    [ -z "$SNAPSHOT_A" ] && SNAPSHOT_A="${indices[0]}"
-    [ "${snapshots[$SNAPSHOT_A]}" ] && SNAPSHOT_A="${snapshots[$SNAPSHOT_A]}"
+    [ -z "$SNAPSHOT" ] && SNAPSHOT_A="${indices[0]}"
+    [ "${snapshots[$SNAPSHOT]}" ] && SNAPSHOT="${snapshots[$SNAPSHOT]}"
     btrsnap_pwd=$(btrsnap-cwd)
-    UNDO_FROM="$(echo "$SNAPSHOT_A$FILE_QUERY" | sed "s#$btrsnap_pwd##g")"
+    UNDO_FROM="$(echo "$SNAPSHOT$FILE_QUERY" | sed "s#$btrsnap_pwd##g")"
     UNDO_TO="$FILE_QUERY"
     echo -e "btrsnap-undo:\t$UNDO_FROM -> $UNDO_TO"
     [ "$DRY_RUN" -eq 1 ] && return 0
@@ -890,6 +949,104 @@ sub_undo() {
 }
 
 sub_u() {
+    sub_undo "$@";
+}
+
+
+### btrsnap restore
+sub_restore() {
+    RESTORE_MODE=1
+    # Parse subcommand options and arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            "-h" | "--help")
+                restore_help
+                exit 0
+                ;;
+            "-v" | "--verbose")
+                VERBOSE=1
+                shift
+                ;;
+            "-n" | "--dry-run")
+                DRY_RUN=1
+                shift
+                ;;
+            "-b" | "--basedir")
+                shift
+                if [[ ! $1 = /* ]]; then
+                    BTRSNAP_BASEDIR=$(pwd)/$1
+                else
+                    BTRSNAP_BASEDIR="$1"
+                fi
+                shift
+                ;;
+            "-d" | "--device")
+                shift
+                [ "$1" -ge 0 ] && [ "$1" -lt 3 ] && RESTORE_MODE=$1
+                shift
+                ;;
+            "-s" | "--snapshot")
+                RESTORE_MODE=0
+                shift
+                ;;
+            "-r" | "--rsync")
+                RESTORE_MODE=1
+                shift
+                ;;
+            "-c" | "--cp")
+                RESTORE_MODE=2
+                shift
+                ;;
+            *)
+                SNAPSHOT="$1"
+                shift
+                SUBVOLUME="$1"
+                shift
+                ;;
+        esac
+    done
+    # Sanatize defaults
+    [[ ! $BTRSNAP_CONF = /* ]] && [ ! -f "$BTRSNAP_CONF" ] && BTRSNAP_CONF=$BTRSNAP_BASEDIR/$BTRSNAP_CONF
+    [[ ! $BTRSNAP_LOG = /* ]] && [ ! -f "$BTRSNAP_LOG" ] && BTRSNAP_LOG=$BTRSNAP_BASEDIR/$BTRSNAP_LOG
+    # handle input as index
+    declare -A snapshots && btrsnap-alist snapshots
+    indices=("${!snapshots[@]}")
+    [ -z "$SNAPSHOT" ] && SNAPSHOT="${indices[0]}"
+    [ "${snapshots[$SNAPSHOT]}" ] && SNAPSHOT="${snapshots[$SNAPSHOT]}"
+    [ -z "$SUBVOLUME" ] && SUBVOLUME=$(btrsnap-get-source $SNAPSHOT)
+    # Print out info
+    [ "$VERBOSE" -eq 1 ] && echo -e "Config:\t$BTRSNAP_CONF"
+    [ "$VERBOSE" -eq 1 ] && echo -e "Log:   \t$BTRSNAP_LOG"
+    echo -e "btrsnap-restore:\t$SNAPSHOT -> $SUBVOLUME"
+    # Validate info
+    is-btrfs-subvolume $SUBVOLUME || {
+        echo "btrfs subvolume $SUBVOLUME doesn't exist!";
+        exit 1;
+    }
+    # Restore snapshot
+    case $RESTORE_MODE in
+        0)
+            [ "$DRY_RUN" -eq 1 ] && return 0
+            # echo "btrfs subvolume snapshot $SNAPSHOT $SUBVOLUME"
+            btrfs subvolume delete $SUBVOLUME 2>&1 1>/dev/null
+            btrfs subvolume snapshot $SNAPSHOT $SUBVOLUME 2>&1 1>/dev/null
+        	  ;;
+        1)
+            FLAGS="--delete -avh"
+            [ "$DRY_RUN" -eq 1 ] && FLAGS+="n"
+            # echo "rsync $FLAGS $SNAPSHOT/ $SUBVOLUME/"
+            rsync $FLAGS $SNAPSHOT/ $SUBVOLUME/
+            ;;
+        2)
+            [ "$DRY_RUN" -eq 1 ] && return 0
+            # echo "cp -rT $SNAPSHOT $SUBVOLUME"
+            cp -rT $SNAPSHOT $SUBVOLUME
+            ;;
+    esac
+    
+}
+
+sub_r() {
     sub_undo "$@";
 }
 
