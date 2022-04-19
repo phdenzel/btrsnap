@@ -1,0 +1,10 @@
+[Unit]
+Description=Schedule for taking btrfs snapshots of root using btrsnap
+
+[Timer]
+Unit=btrsnap-root@%i.service
+OnCalendar=%i
+Persistent=true
+
+[Install]
+WantedBy=timers.target

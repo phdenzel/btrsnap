@@ -1,0 +1,9 @@
+[Unit]
+Description=Take a scheduled btrfs snapshot of home using btrsnap
+
+[Service]
+Type=oneshot
+WorkingDirectory=/snapshots
+ExecStartPre=/bin/sleep 30
+ExecStart=/usr/local/bin/btrsnap create /home home --mode %i -m "systemd-timed snapshot"
+ExecStartPost=/usr/local/bin/btrsnap scrub -f /home --mode %i

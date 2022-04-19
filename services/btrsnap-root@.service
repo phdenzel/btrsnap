@@ -1,0 +1,8 @@
+[Unit]
+Description=Take a scheduled btrfs snapshot of root using btrsnap
+
+[Service]
+Type=oneshot
+WorkingDirectory=/snapshots
+ExecStart=/usr/local/bin/btrsnap create / root --mode %i -m "systemd-timed snapshot"
+ExecStartPost=/usr/local/bin/btrsnap scrub -f / --mode %i
