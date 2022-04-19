@@ -628,11 +628,11 @@ sub_list() {
             "--mode")
                 shift
                 case $1 in
-                    0) BTRSNAP_MODE='manual';;
-                    1) BTRSNAP_MODE='hourly';;
-                    2) BTRSNAP_MODE='daily';;
-                    3) BTRSNAP_MODE='monthly';;
-                    4) BTRSNAP_MODE='yearly';;
+                    0 | Man* | man*) BTRSNAP_MODE='manual';;
+                    1 | H* | h*) BTRSNAP_MODE='hourly';;
+                    2 | D* | d*) BTRSNAP_MODE='daily';;
+                    3 | M* | m*) BTRSNAP_MODE='monthly';;
+                    4 | Y* | y*) BTRSNAP_MODE='yearly';;
                 esac
                 shift
                 ;;
@@ -769,12 +769,12 @@ sub_create() {
             "--mode")
                 shift
                 case $1 in
-                    -1) BTRSNAP_MODE='manual';;
-                    0) BTRSNAP_MODE='manual';;
-                    1) BTRSNAP_MODE='hourly';;
-                    2) BTRSNAP_MODE='daily';;
-                    3) BTRSNAP_MODE='monthly';;
-                    4) BTRSNAP_MODE='yearly';;
+                    -1 | Man* | man*) BTRSNAP_MODE='manual';;
+                    0 | Man* | man*) BTRSNAP_MODE='manual';;
+                    1 | H* | h*) BTRSNAP_MODE='hourly';;
+                    2 | D* | d*) BTRSNAP_MODE='daily';;
+                    3 | M* | m*) BTRSNAP_MODE='monthly';;
+                    4 | Y* | y*) BTRSNAP_MODE='yearly';;
                 esac
                 shift
                 ;;
@@ -860,11 +860,11 @@ sub_remove() {
             "--mode")
                 shift
                 case $1 in
-                    0) BTRSNAP_MODE='manual';;
-                    1) BTRSNAP_MODE='hourly';;
-                    2) BTRSNAP_MODE='daily';;
-                    3) BTRSNAP_MODE='monthly';;
-                    4) BTRSNAP_MODE='yearly';;
+                    0 | Man* | man*) BTRSNAP_MODE='manual';;
+                    1 | H* | h*) BTRSNAP_MODE='hourly';;
+                    2 | D* | d*) BTRSNAP_MODE='daily';;
+                    3 | M* | m*) BTRSNAP_MODE='monthly';;
+                    4 | Y* | y*) BTRSNAP_MODE='yearly';;
                 esac
                 shift
                 ;;
@@ -1207,11 +1207,11 @@ sub_scrub() {
             "--mode")
                 shift
                 case $1 in
-                    0) BTRSNAP_MODE='manual';;
-                    1) BTRSNAP_MODE='hourly';;
-                    2) BTRSNAP_MODE='daily';;
-                    3) BTRSNAP_MODE='monthly';;
-                    4) BTRSNAP_MODE='yearly';;
+                    0 | Man* | man*) BTRSNAP_MODE='manual';;
+                    1 | H* | h*) BTRSNAP_MODE='hourly';;
+                    2 | D* | d*) BTRSNAP_MODE='daily';;
+                    3 | M* | m*) BTRSNAP_MODE='monthly';;
+                    4 | Y* | y*) BTRSNAP_MODE='yearly';;
                 esac
                 shift
                 ;;
