@@ -3,6 +3,88 @@
 #+DATE: 2022-04-12 Tue
 #+OPTIONS: author:nil title:t date:nil timestamp:nil toc:nil num:nil \n:nil
 
+
+This is yet another btrfs snapshotting program. Ever since I've been
+using btrfs as the filesystem of my daily driver, I took advantage of
+the main feature of btrfs: (almost) instantaneous snapshots. I created
+them through [[https://github.com/teejee2008/timeshift][timeshift]], then I eventually switched to [[https://github.com/openSUSE/snapper][snapper]], never
+realizing that btrfs-progs already ships with a pretty usable
+snapshotting utility itself. The advantage of btrfs-progs over
+timeshift or snapper, is that it leaves decisions to the user and
+doesn't impose specific filesystem configurations or naming
+conventions. Over the time, I accumulated several bash scripts
+wrapping these utility functions, most of which I used to run as cron
+jobs.
+
+This is a unified re-write of these separate functions into a proper
+framework unimaginatively called ~btrsnap~. It imposes my
+configuration as defaults, but integrates environment variables and a
+configuration file, giving the user the option to fully customize to
+any setup.  Moreover, it provides systemd service and timer templates
+which can be used to run timed and automated snapshots.
+
+
+* Install
+
+Install ~btrsnap~ using
+#+begin_src shell
+sudo make install
+#+end_src
+This will install the script to ~/usr/local/bin/~ which should already
+be in your PATH.
+
+Alternatively you can run
+#+begin_src shell
+PREFIX=/path/of/your/choice make install
+#+end_src
+which might need sudo priviliges depending on your choice.
+
+In case you're running on ~systemd~ (I have no opinions on the matter,
+and I'm not interested in discussions about it) and you want to
+automate btrsnap, used
+
+#+begin_src shell
+sudo make install-service
+#+end_src
+This installs ~btrsnap-root@.service~, ~btrsnap-home@.service~, and
+their corresponding timers to ~/etc/systemd/system/~.
+
+Services can then be timed with e.g.
+#+begin_src shell
+sudo systemctl enable --now btrsnap-root@weekly.timer
+#+end_src
+which will run weekly snapshots of your root subvolume.
+You can also enable the following timers:
+- ~btrsnap-root@hourly.timer~
+- ~btrsnap-root@daily.timer~
+- ~btrsnap-root@monthly.timer~
+- ~btrsnap-root@yearly.timer~
+- ~btrsnap-home@hourly.timer~
+- ~btrsnap-home@daily.timer~
+- ~btrsnap-home@weekly.timer~
+- ~btrsnap-home@monthly.timer~
+- ~btrsnap-home@yearly.timer~
+
+These service templates enable you to periodically snapshot your
+~root~ and ~home~ subvolumes mounted at ~/~ and ~/home~
+respectively. If you have a different setup simply add analogous files
+with your specifications.
+
+To uninstall ~btrsnap~ (from any location) and btrsnap
+services/timers, simply run
+#+begin_src shell
+sudo make uninstall
+#+end_src
+
+
+* Usage
+
+~btrsnap~ has several subcommands which can be inspected using
+
+#+begin_src shell
+sudo btrsnap help
+#+end_src
+
 #+begin_src shell
 Usage: sudo btrsnap <subcommand> [options]
 
@@ -10,7 +92,7 @@ Subcommands:
     e(nv)
         - Print all environment variables
 
-    l(ist) [options] [source]
+    l(i)[s](t) [options] [source]
         - List all snapshots (and updates logs)
 
     i(nfo) [options] [snapshot]
@@ -31,6 +113,9 @@ Subcommands:
     r(estore) [options] [snapshot] [subvolume]
         - Restore the filesystem to a former snapshot
 
+    s(crub) [options] [source]
+        - Scrub the oldest snapshots above the limits
+
 For help with each subcommand run:
     btrsnap <subcommand> -h|--help
 
@@ -41,4 +126,114 @@ is used as base path, otherwise it is ignored.
 btrsnap configuration and logs are in
     - .btrsnap/btrsnap.conf
     - .btrsnap/btrsnap.log
+
+#+end_src
+
+
+*** btrsnap-create
+
+The most frequently used command would probably be
+#+begin_src
+sudo btrsnap create / /snapshots/root
+#+end_src
+which saves a snapshot of the root subvolume mounted at ~/~ to
+~/snapshots/root/%y%m%dT%H:%M:%S.%2N~ (this happens to be the default
+which is why ~sudo btrsnap c~ yields the same result).
+
+You can also add a different name format and some description to the
+snapshot with
+#+begin_src shell
+sudo btrsnap c -f special / /mydata/special_dir -m "A really special snapshot"
+#+end_src
+This saves the snapshot of ~/~ to ~/mydata/special_dir/special~.
+
+
+*** btrsnap-list
+
+All snapshots, their most important attributes, and their description
+can be inspected using
+#+begin_src shell
+sudo btrsnap ls
+#+end_src
+
+#+begin_src shell
+#  Snapshot                            Source  Time                        Flags  Mode    Description
+1  /snapshots/root/220418T22:31:23.37  /       22-04-18 22:31:23.37 +0200  r      manual  
+2  /mydata/special_dir/special         /       22-04-19 22:32:01.68 +0200  r      manual  A really special snapshot
+#+end_src
+
+
+*** btrsnap-remove
+
+If at any point you decide to delete a snapshot, use
+#+begin_src shell
+sudo btrsnap rm /mydata/special_dir/special
+#+end_src
+
+You can also select snapshots by index
+#+begin_src shell
+sudo btrsnap rm 2
+#+end_src
+or since in this case it is the latest snapshot
+#+begin_src shell
+sudo btrsnap rm -1
+#+end_src
+
+
+*** btrsnap-scrub
+
+~btrsnap~ works with modes and limit parameters (which of course can
+be reconfigured). Each mode has different limit defaults:
+
+- manual: 12
+- hourly: 4
+- daily: 3
+- weekly: 6
+- monthly: 4
+- yearly: 1
+
+The ~scrub~ subcommand enforces these limits and deletes the oldest
+snapshots when the number of snapshots with that mode is exceeded.
+
+For instance,
+#+begin_src shell
+sudo btrsnap scrub /
+#+end_src
+clears all snapshots of root with all modes.
+
+#+begin_src shell
+sudo btrsnap scrub --mode hourly
+#+end_src
+clears all snapshots taken in 'hourly' mode regardless of its source.
+
+
+** Configuration file
+
+~btrsnap~ integrates with environment variables and configuration
+files. In case you don't want to change the program's source code
+itself, add
+#+begin_src shell
+export BTRSNAP_CONF=/snapshots/.btrsnap/btrsnap.conf~
+#+end_src
+to your ~.bashrc~ or ~.zshrc~. In the configuration file you can
+define your own default values for
+#+begin_src conf
+BTRSNAP_BASEDIR="/snapshots"
+BTRSNAP_LOG=".$PROGNAME/$PROGNAME.log"
+BTRSNAP_SRC='/'
+BTRSNAP_TARGET="root"
+BTRSNAP_MODE="manual"
+BTRSNAP_WRITABLE=0
+BTRSNAP_TIMEFORMAT="+%y%m%dT%H:%M:%S.%2N"
+BTRSNAP_WARNINGS=1
+
+BTRSNAP_MANUAL_LIMIT=12
+BTRSNAP_MONTHLY_LIMIT=4
+BTRSNAP_WEEKLY_LIMIT=3
+BTRSNAP_DAILY_LIMIT=6
+BTRSNAP_HOURLY_LIMIT=4
+BTRSNAP_YEARLY_LIMIT=1
+
+DRY_RUN=0
+VERBOSE=0
 #+end_src
