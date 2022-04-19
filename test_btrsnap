@@ -77,23 +77,23 @@ fi
 if [ "$SKIP" -eq 0 ]; then
     # btrsnap-remove (relative)
     echo -e "\n### btrsnap c -f \"current\" / /snapshots/test"
-    echo "#### btrsnap rm test/current"
+    echo "#### btrsnap rm -f test/current"
     btrsnap c -f "current" / /snapshots/test
-    btrsnap rm test/current
+    btrsnap rm -f test/current
     # btrsnap-remove (absolute)
     echo -e "\n### btrsnap c -f \"current\" / /snapshots/test"
-    echo "#### btrsnap rm /snapshots/test/current"
+    echo "#### btrsnap rm -f /snapshots/test/current"
     btrsnap c -f "current" / /snapshots/test
-    btrsnap rm /snapshots/test/current
+    btrsnap rm -f /snapshots/test/current
     # btrsnap-remove default
     echo -e "\n### btrsnap c -f \"current\" / /snapshots/test"
-    echo "#### btrsnap rm"
+    echo "#### btrsnap rm -f"
     btrsnap c -f "current" / /snapshots/test
-    btrsnap rm
+    btrsnap rm -f
     # btrsnap-remove by index
-    echo "#### btrsnap rm -1"
+    echo "#### btrsnap rm -f -1"
     btrsnap c -f "current" / /snapshots/test
-    btrsnap rm -1
+    btrsnap rm -f -1
     # TODO: btrsnap-remove mode
     # TODO: btrsnap-remove wildcard
 fi
@@ -113,26 +113,26 @@ echo -e "\n###  touch /test_file.txt"
 echo "###  btrsnap c -f \"prev\" / test"
 echo "###  echo \"TEST CONTENT\" >> /test_file.txt"
 echo "#### btrsnap diff /snapshots/test/prev 0"
-echo "###  btrsnap rm /snapshots/test/prev"
+echo "###  btrsnap rm -f /snapshots/test/prev"
 echo "###  rm /test_file.txt"
 touch /test_file.txt
 btrsnap c -f "prev" / test &>/dev/null
 echo "TEST CONTENT" >> /test_file.txt
 btrsnap diff /snapshots/test/prev 0
-btrsnap rm /snapshots/test/prev &>/dev/null
+btrsnap rm -f /snapshots/test/prev &>/dev/null
 rm /test_file.txt
 # btrsnap-diff file
 echo -e "\n###  touch /test_file.txt"
 echo "###  btrsnap c -f \"prev\" / test"
 echo "###  echo \"TEST CONTENT\" >> /test_file.txt"
 echo "#### btrsnap d -f /test_file.txt test/prev"
-echo "###  btrsnap rm /snapshots/test/prev"
+echo "###  btrsnap rm -f /snapshots/test/prev"
 echo "###  rm /test_file.txt"
 touch /test_file.txt
 btrsnap c -f "prev" / test &>/dev/null
 echo "TEST CONTENT" >> /test_file.txt
 btrsnap d -f /test_file.txt test/prev
-btrsnap rm /snapshots/test/prev &>/dev/null
+btrsnap rm -f /snapshots/test/prev &>/dev/null
 rm /test_file.txt
 
 # btrsnap-undo
@@ -147,7 +147,7 @@ if [ "$SKIP" -eq 0 ]; then
     echo "###  echo \"OHHH, SNAP! THIS IS ANOTHER LINE\" >> test_file.txt"
     echo "#### btrsnap undo test_file.txt /snapshots/test/prev"
     echo "###  cat test_file.txt"
-    echo "###  btrsnap rm /snapshots/test/prev"
+    echo "###  btrsnap rm -f /snapshots/test/prev"
     echo "###  rm test_file.txt"
     touch test_file.txt
     echo "THIS SHOULD BE THE ONLY LINE AFTER btrsnap-undo" >> test_file.txt
@@ -155,7 +155,7 @@ if [ "$SKIP" -eq 0 ]; then
     echo "OHHH, SNAP! THIS IS ANOTHER LINE" >> test_file.txt
     btrsnap undo test_file.txt /snapshots/test/prev
     cat test_file.txt
-    btrsnap rm /snapshots/test/prev &>/dev/null
+    btrsnap rm -f /snapshots/test/prev &>/dev/null
     rm test_file.txt
     # btrsnap-undo (from non-root)
     echo -e "\n###  touch /home/test_file.txt"
@@ -164,7 +164,7 @@ if [ "$SKIP" -eq 0 ]; then
     echo "###  echo \"OHHH, SNAP! THIS IS ANOTHER LINE\" >> /home/test_file.txt"
     echo "#### btrsnap undo /home/test_file.txt /snapshots/test/prev"
     echo "###  cat /home/test_file.txt"
-    echo "###  btrsnap rm /snapshots/test/prev"
+    echo "###  btrsnap rm -f /snapshots/test/prev"
     echo "###  rm /home/test_file.txt"
     touch /home/test_file.txt
     echo "THIS SHOULD BE THE ONLY LINE AFTER btrsnap-undo" >> /home/test_file.txt
@@ -172,7 +172,7 @@ if [ "$SKIP" -eq 0 ]; then
     echo "OHHH, SNAP! THIS IS ANOTHER LINE" >> /home/test_file.txt
     btrsnap undo /home/test_file.txt /snapshots/test/prev
     cat /home/test_file.txt
-    btrsnap rm /snapshots/test/prev &>/dev/null
+    btrsnap rm -f /snapshots/test/prev &>/dev/null
     rm /home/test_file.txt
     # btrsnap-undo default
     echo -e "\n###  touch /test_file.txt"
@@ -181,7 +181,7 @@ if [ "$SKIP" -eq 0 ]; then
     echo "###  echo \"OHHH, SNAP! THIS IS ANOTHER LINE\" >> /test_file.txt"
     echo "#### btrsnap undo /test_file.txt"
     echo "###  cat /test_file.txt"
-    echo "###  btrsnap rm /snapshots/test/prev"
+    echo "###  btrsnap rm -f /snapshots/test/prev"
     echo "###  rm /test_file.txt"
     touch /test_file.txt
     echo "THIS SHOULD BE THE ONLY LINE AFTER btrsnap-undo" >> /test_file.txt
@@ -189,7 +189,7 @@ if [ "$SKIP" -eq 0 ]; then
     echo "OHHH, SNAP! THIS IS ANOTHER LINE" >> /test_file.txt
     btrsnap undo /test_file.txt
     cat /test_file.txt
-    btrsnap rm /snapshots/test/prev &>/dev/null
+    btrsnap rm -f /snapshots/test/prev &>/dev/null
     rm /test_file.txt
     # btrsnap-undo directory
     echo -e "\n###  mkdir /testdir"
@@ -199,7 +199,7 @@ if [ "$SKIP" -eq 0 ]; then
     echo "###  echo \"OHHH, SNAP! THIS IS ANOTHER LINE\" >> /testdir/test_file.txt"
     echo "#### btrsnap undo /testdir"
     echo "###  cat /testdir/test_file.txt"
-    echo "###  btrsnap rm /snapshots/test/prev"
+    echo "###  btrsnap rm -f /snapshots/test/prev"
     echo "###  rm -r /testdir"
     mkdir /testdir
     touch /testdir/test_file.txt
@@ -208,7 +208,7 @@ if [ "$SKIP" -eq 0 ]; then
     echo "OHHH, SNAP! THIS IS ANOTHER LINE" >> /testdir/test_file.txt
     btrsnap undo /testdir
     cat /testdir/test_file.txt
-    btrsnap rm /snapshots/test/prev &>/dev/null
+    btrsnap rm -f /snapshots/test/prev &>/dev/null
     rm -r /testdir
 fi
 # btrsnap undo file
@@ -218,7 +218,7 @@ echo "###  btrsnap c -f \"prev\" / /snapshots/test"
 echo "###  echo \"OHHH, SNAP! THIS IS ANOTHER LINE\" >> /test_file.txt"
 echo "#### btrsnap undo /test_file.txt /snapshots/test/prev"
 echo "###  cat test_file.txt"
-echo "###  btrsnap rm /snapshots/test/prev"
+echo "###  btrsnap rm -f /snapshots/test/prev"
 echo "###  rm /test_file.txt"
 touch /test_file.txt
 echo "THIS SHOULD BE THE ONLY LINE AFTER btrsnap-undo" >> /test_file.txt
@@ -226,7 +226,7 @@ btrsnap c -f "prev" / /snapshots/test &>/dev/null
 echo "OHHH, SNAP! THIS IS ANOTHER LINE" >> /test_file.txt
 btrsnap undo /test_file.txt /snapshots/test/prev
 cat /test_file.txt
-btrsnap rm /snapshots/test/prev &>/dev/null
+btrsnap rm -f /snapshots/test/prev &>/dev/null
 rm /test_file.txt
 
 
@@ -242,49 +242,45 @@ if [ "$SKIP" -eq 0 ]; then
     echo "###  touch $HOME/btrsnap_test/test_file.txt"
     echo "#### btrsnap restore /snapshots/test/current $HOME/btrsnap_test"
     echo "###  ls $HOME/btrsnap_test/test_file.txt"
-    echo "###  btrsnap rm /snapshots/test/current"
+    echo "###  btrsnap rm -f /snapshots/test/current"
     btrsnap c -f "current" $HOME/btrsnap_test /snapshots/test &>/dev/null
     touch $HOME/btrsnap_test/test_file.txt
     btrsnap restore -d 0 /snapshots/test/current $HOME/btrsnap_test
     ls $HOME/btrsnap_test/test_file.txt 2> /dev/null
-    btrsnap rm /snapshots/test/current &>/dev/null
-    rm $HOME/btrsnap_test/test_file.txt  # remove when functioning
+    btrsnap rm -f /snapshots/test/current &>/dev/null
     # btrsnap-restore device 1
     echo -e "\n###  btrsnap c -f \"current\" $HOME/btrsnap_test /snapshots/test"
     echo "###  touch $HOME/btrsnap_test/test_file.txt"
     echo "#### btrsnap restore /snapshots/test/current $HOME/btrsnap_test"
     echo "###  ls $HOME/btrsnap_test/test_file.txt"
-    echo "###  btrsnap rm /snapshots/test/current"
+    echo "###  btrsnap rm -f /snapshots/test/current"
     btrsnap c -f "current" $HOME/btrsnap_test /snapshots/test &>/dev/null
     touch $HOME/btrsnap_test/test_file.txt
     btrsnap restore -d 1 /snapshots/test/current $HOME/btrsnap_test
     ls $HOME/btrsnap_test/test_file.txt 2> /dev/null
-    btrsnap rm /snapshots/test/current &>/dev/null
-    rm $HOME/btrsnap_test/test_file.txt  # remove when functioning
+    btrsnap rm -f /snapshots/test/current &>/dev/null
     # btrsnap-restore device 2
     echo -e "\n###  btrsnap c -f \"current\" $HOME/btrsnap_test /snapshots/test"
     echo "###  touch $HOME/btrsnap_test/test_file.txt"
     echo "#### btrsnap restore /snapshots/test/current $HOME/btrsnap_test"
     echo "###  ls $HOME/btrsnap_test/test_file.txt"
-    echo "###  btrsnap rm /snapshots/test/current"
+    echo "###  btrsnap rm -f /snapshots/test/current"
     btrsnap c -f "current" $HOME/btrsnap_test /snapshots/test &>/dev/null
     touch $HOME/btrsnap_test/test_file.txt
     btrsnap restore -d 2 /snapshots/test/current $HOME/btrsnap_test
     ls $HOME/btrsnap_test/test_file.txt 2> /dev/null
-    btrsnap rm /snapshots/test/current &>/dev/null
-    rm $HOME/btrsnap_test/test_file.txt  # remove when functioning
+    btrsnap rm -f /snapshots/test/current &>/dev/null
     # btrsnap-restore default
     echo -e "\n###  btrsnap c -f \"current\" $HOME/btrsnap_test /snapshots/test"
     echo "###  touch $HOME/btrsnap_test/test_file.txt"
     echo "#### btrsnap restore -d 1"
     echo "###  ls $HOME/btrsnap_test/test_file.txt"
-    echo "###  btrsnap rm /snapshots/test/current"
+    echo "###  btrsnap rm -f /snapshots/test/current"
     btrsnap c -f "current" $HOME/btrsnap_test /snapshots/test &>/dev/null
     touch $HOME/btrsnap_test/test_file.txt
     btrsnap restore -d 1
     ls $HOME/btrsnap_test/test_file.txt 2> /dev/null
-    btrsnap rm /snapshots/test/current &>/dev/null
-    rm $HOME/btrsnap_test/test_file.txt  # remove when functioning
+    btrsnap rm -f /snapshots/test/current &>/dev/null
 fi
 # btrsnap-restore default subvolume
 echo "###  touch $HOME/btrsnap_test/test_file.txt"
@@ -293,14 +289,14 @@ echo "###  btrsnap c -f \"btrsnap_test\" $HOME/btrsnap_test /snapshots/test"
 echo "###  echo \"This content should not be visible after btrsnap-restore\" >> $HOME/btrsnap_test/test_file.txt"
 echo "#### btrsnap restore -d 0 /snapshots/test/btrsnap_test"
 echo "###  cat $HOME/btrsnap_test/test_file.txt"
-echo "###  btrsnap rm /snapshots/test/btrsnap_test"
+echo "###  btrsnap rm -f /snapshots/test/btrsnap_test"
 touch $HOME/btrsnap_test/test_file.txt
 echo "THIS SHOULD BE THE ONLY LINE AFTER btrsnap-restore" >> $HOME/btrsnap_test/test_file.txt
 btrsnap c -f "btrsnap_test" $HOME/btrsnap_test /snapshots/test &>/dev/null
 echo "OHHH, SNAP! THIS IS ANOTHER LINE" >> $HOME/btrsnap_test/test_file.txt
 btrsnap restore -d 0 /snapshots/test/btrsnap_test
 cat $HOME/btrsnap_test/test_file.txt
-btrsnap rm /snapshots/test/btrsnap_test &>/dev/null
-rm $HOME/btrsnap_test/test_file.txt  # remove when functioning
+btrsnap rm -f /snapshots/test/btrsnap_test &>/dev/null
+rm $HOME/btrsnap_test/test_file.txt
 
 btrfs subvolume delete $HOME/btrsnap_test
