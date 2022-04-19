@@ -54,7 +54,7 @@ sub_help() {
     echo "    e(nv)"
     echo "        - Print all environment variables"
     echo ""
-    echo "    l(ist) [options] [source]"
+    echo "    l(i)[s](t) [options] [source]"
     echo "        - List all snapshots (and updates logs)"
     echo ""
     echo "    i(nfo) [options] [snapshot]"
@@ -666,6 +666,10 @@ sub_list() {
 }
 
 sub_l() {
+    sub_list "$@";
+}
+
+sub_ls() {
     sub_list "$@";
 }
 
