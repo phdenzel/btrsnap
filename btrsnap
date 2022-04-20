@@ -43,7 +43,7 @@ BTRSNAP_YEARLY_LIMIT=${BTRSNAP_YEARLY_LIMIT:-1}
 
 # Constants
 BTRSNAP_LOG_COLUMNS='#,Snapshot,Source,Time,Flags,Mode,Description'
-
+BTRSNAP_SERVICE_PREFIX='services'
 
 
 ### Help functions
@@ -77,6 +77,9 @@ sub_help() {
     echo ""
     echo "    s(crub) [options] [source]"
     echo "        - Scrub the oldest snapshots above the limits"
+    echo ""
+    echo "    g(en)t(emp) [options] [source] [target]"
+    echo "        - Generate systemd service and timer templates"
     echo ""
     echo "For help with each subcommand run:"
     echo "    $PROGNAME <subcommand> -h|--help"
@@ -278,6 +281,32 @@ scrub_help() {
     echo "--mode <integer>"
     echo "               Scrub only snapshots of given mode (default: all)"
     echo "               0:manual; 1:hourly; 2:daily; 3:monthly; 4:yearly"
+    echo ""
+}
+
+gentemp_help() {
+    echo "Usage: sudo $PROGNAME-gentemp [options] [subvolume] [target]"
+    echo ""
+    echo "Generate systemd service and timer template files for snapshotting"
+    echo "a btrfs subvolume (default: '/') to a target directory (default: '$BTRSNAP_BASEDIR/$BTRSNAP_TARGET/')"
+    echo ""
+    echo "-h, --help     Display this help text"
+    echo ""
+    echo "-v, --verbose  Print action info to the command-line"
+    echo ""
+    echo "-n, --dry-run  Run command, but perform no actions"
+    echo ""
+    echo "-b, --basedir <path>"
+    echo "               Change the $PROGNAME base directory (default: $BTRSNAP_BASEDIR')"
+    echo ""
+    echo "--delay <integer>"
+    echo "               Add a delay to the timer template to avoid interference"
+    echo "               with other btrsnap timers"
+    echo ""
+    echo "--type <type>  Systemd service type (default: oneshot)"
+    echo ""
+    echo "--wanted-by <target>"
+    echo "               Systemd install target (default: timers.target)"
     echo ""
 }
 
@@ -1267,7 +1296,113 @@ sub_s() {
 }
 
 
-# Main
+### btrsnap gentemp
+sub_gentemp() {
+    local SCRIPTPATH=$(cd -- "$(dirname "$0")" >/dev/null 2>&1 ;pwd -P)
+    local SERVICE_TYPE="oneshot"
+    local WANTED_BY="timers.target"
+    # Parse subcommand options and arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            "-h" | "--help")
+                gentemp_help
+                exit 0
+                ;;
+            "-v" | "--verbose")
+                VERBOSE=1
+                shift
+                ;;
+            "-n" | "--dry-run")
+                DRY_RUN=1
+                shift
+                ;;
+            "-b" | "--basedir")
+                shift
+                if [[ ! $1 = /* ]]; then
+                    BTRSNAP_BASEDIR=$(pwd)/$1
+                else
+                    BTRSNAP_BASEDIR="$1"
+                fi
+                shift
+                ;;
+            "--type")
+                shift
+                SERVICE_TYPE="$1"
+                shift
+                ;;
+            "--wanted-by")
+                shift
+                WANTED_BY="$1"
+                shift
+                ;;
+            "--delay")
+                shift
+                DELAY="$1"
+                shift
+                ;;
+            *)
+                BTRSNAP_SRC="$1"
+                shift
+                BTRSNAP_TARGET="$1"
+                BTRSNAP_NAME=$(basename "$1" | tr -d / | tr -d @)
+                shift
+                ;;
+        esac
+    done
+    # Sanatize defaults
+    [[ ! $BTRSNAP_CONF = /* ]] && [ ! -f "$BTRSNAP_CONF" ] && BTRSNAP_CONF=$BTRSNAP_BASEDIR/$BTRSNAP_CONF
+    [[ ! $BTRSNAP_LOG = /* ]] && [ ! -f "$BTRSNAP_LOG" ] && BTRSNAP_LOG=$BTRSNAP_BASEDIR/$BTRSNAP_LOG
+    [[ ! $BTRSNAP_TARGET = /* ]] && BTRSNAP_TARGET=$BTRSNAP_BASEDIR/$BTRSNAP_TARGET
+    [ -z "$BTRSNAP_NAME" ] && basename "$BTRSNAP_TARGET"
+    [[ ! $BTRSNAP_NAME = /* ]] && BTRSNAP_NAME=$(basename "$BTRSNAP_NAME" | tr -d / | tr -d @)
+    [ -z "$DELAY" ] && DELAY=0
+    # Print out info
+    [ "$VERBOSE" -eq 1 ] && echo -e "Config:\t$BTRSNAP_CONF"
+    [ "$VERBOSE" -eq 1 ] && echo -e "Log:   \t$BTRSNAP_LOG"
+    echo -e "btrsnap-gentemp:\t$BTRSNAP_SRC -> $BTRSNAP_TARGET"
+    echo -e "btrsnap-gentemp:\t>> btrsnap-$BTRSNAP_NAME@.service"
+    echo -e "btrsnap-gentemp:\t>> btrsnap-$BTRSNAP_NAME@.timer"
+    # Validate info
+    is-btrfs-subvolume $BTRSNAP_SRC || {
+        echo "btrfs subvolume $BTRSNAP_SRC doesn't exist!";
+        exit 1;
+    }
+    # Actions!
+    [ "$DRY_RUN" -eq 1 ] && return 0
+    mkdir -p "$BTRSNAP_SERVICE_PREFIX";
+    # Write service template file: btrsnap-$BTRSNAP_NAME@.service
+    cat <<EOF > $BTRSNAP_SERVICE_PREFIX/btrsnap-$BTRSNAP_NAME@.service
+[Unit]
+Description=Take a %i btrfs snapshot of $BTRSNAP_NAME using btrsnap
+
+[Service]
+Type=$SERVICE_TYPE
+WorkingDirectory=$BTRSNAP_BASEDIR
+ExecStartPre=/bin/sleep $DELAY
+ExecStart=$SCRIPTPATH/$PROGNAME create $BTRSNAP_SRC $BTRSNAP_TARGET --mode %i -m "systemd-timed snapshot"
+ExecStartPost=$SCRIPTPATH/$PROGNAME scrub -f $BTRSNAP_SRC --mode %i
+EOF
+    # Write timer template file
+    cat <<EOF > $BTRSNAP_SERVICE_PREFIX/btrsnap-$BTRSNAP_NAME@.timer
+[Unit]
+Description=Schedule for taking %i btrfs snapshots of $BTRSNAP_NAME using btrsnap
+
+[Timer]
+Unit=btrsnap-$BTRSNAP_NAME@%i.service
+OnCalendar=%i
+Persistent=true
+
+[Install]
+WantedBy=$WANTED_BY
+EOF
+}
+
+sub_gt() {
+    sub_gentemp "$@";
+}
+
+
+### Main
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
     echo -e "Please run $PROGNAME with sudo priviliges\n"
     sub_help

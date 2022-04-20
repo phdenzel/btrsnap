@@ -38,16 +38,28 @@ Alternatively you can run
 PREFIX=/path/of/your/choice make install
 #+end_src
 which might need sudo priviliges depending on your choice.
+Don't forget to add the chosen prefix to your PATH.
 
 In case you're running on ~systemd~ (I have no opinions on the matter,
 and I'm not interested in discussions about it) and you want to
-automate btrsnap, used
-
+automate btrsnap, use
 #+begin_src shell
-sudo make install-service
+sudo btrsnap gentemp / root --delay 0
 #+end_src
-This installs ~btrsnap-root@.service~, ~btrsnap-home@.service~, and
-their corresponding timers to ~/etc/systemd/system/~.
+or for snapshotting your home directories
+#+begin_src shell
+sudo btrsnap gentemp /home home --delay 10
+#+end_src
+These commands create a directory ~services~ and
+~btrsnap-root@.service~ and ~btrsnap-home@.service~ with corresponding
+~btrsnap-*@.timer~ templates within.
+
+They can be installed with
+#+begin_src shell
+sudo make install-services
+#+end_src
+which copies the service files and their corresponding timers to
+~/etc/systemd/system/~.
 
 Services can then be timed with e.g.
 #+begin_src shell
@@ -59,19 +71,18 @@ You can also enable the following timers:
 - ~btrsnap-root@daily.timer~
 - ~btrsnap-root@monthly.timer~
 - ~btrsnap-root@yearly.timer~
-- ~btrsnap-home@hourly.timer~
-- ~btrsnap-home@daily.timer~
-- ~btrsnap-home@weekly.timer~
-- ~btrsnap-home@monthly.timer~
-- ~btrsnap-home@yearly.timer~
+- analogously for other service templates
 
-These service templates enable you to periodically snapshot your
-~root~ and ~home~ subvolumes mounted at ~/~ and ~/home~
-respectively. If you have a different setup simply add analogous files
-with your specifications.
+These service templates enable you to periodically snapshot your root
+subvolume mounted at ~/~ (or in case of ~btrsnap-home@.service~ to
+snapshot ~/home~). If you have a different setup simply add analogous
+files with your specifications using ~btrsnap-gentemp~.
+Note that to avoid any issues with deadlocks due to simultaneously
+writing to the log files, it is advisable to choose different delays
+for different btrsnap tasks using the ~--delay~ flag.
 
-To uninstall ~btrsnap~ (from any location) and btrsnap
-services/timers, simply run
+To uninstall ~btrsnap~ (from any location) and installed btrsnap
+services and timers, simply run
 #+begin_src shell
 sudo make uninstall
 #+end_src
@@ -116,6 +127,9 @@ Subcommands:
     s(crub) [options] [source]
         - Scrub the oldest snapshots above the limits
 
+    g(en)t(emp) [options] [source] [target]
+        - Generate systemd service and timer templates
+
 For help with each subcommand run:
     btrsnap <subcommand> -h|--help
 
@@ -126,7 +140,6 @@ is used as base path, otherwise it is ignored.
 btrsnap configuration and logs are in
     - .btrsnap/btrsnap.conf
     - .btrsnap/btrsnap.log
-
 #+end_src
 
 

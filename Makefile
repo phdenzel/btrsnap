@@ -14,15 +14,9 @@ install:
 	@mkdir -p $(LOCAL_BIN)
 	@ln -sf $(PREFIX)/btrsnap $(LOCAL_BIN)/btrsnap-"`uuidgen`"
 
-install-service: service-root service-home
-
-service-root:
-	cp $(LOCAL_SERVICE_DIR)/btrsnap-root@.service $(SYSTEMD_PREFIX)/
-	cp $(LOCAL_SERVICE_DIR)/btrsnap-root@.timer $(SYSTEMD_PREFIX)/
-
-service-home:
-	cp $(LOCAL_SERVICE_DIR)/btrsnap-home@.service $(SYSTEMD_PREFIX)/
-	cp $(LOCAL_SERVICE_DIR)/btrsnap-home@.timer $(SYSTEMD_PREFIX)/
+install-services:
+	cp $(LOCAL_SERVICE_DIR)/btrsnap-*.service $(SYSTEMD_PREFIX)/
+	cp $(LOCAL_SERVICE_DIR)/btrsnap-*.timer $(SYSTEMD_PREFIX)/
 
 test:
 	SKIP=1 ./test_btrsnap
@@ -30,9 +24,12 @@ test:
 test-long:
 	./test_btrsnap
 
+clean:
+	rm -rf $(LOCAL_BIN)
+	rm -rf $(LOCAL_SERVICE_DIR)
+
 uninstall:
 	rm -f $(PREFIX)/btrsnap
 	rm -f `readlink -f $(LOCAL_BIN)/*`
-	rm -rf $(LOCAL_BIN)
-	rm -rf $(SYSTEMD_PREFIX)/btrsnap-*.service
-	rm -rf $(SYSTEMD_PREFIX)/btrsnap-*.timer
+	rm -f $(SYSTEMD_PREFIX)/btrsnap-*.service
+	rm -f $(SYSTEMD_PREFIX)/btrsnap-*.timer
