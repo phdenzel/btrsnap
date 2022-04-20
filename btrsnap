@@ -120,7 +120,7 @@ list_help() {
     echo ""
     echo "--mode <integer>"
     echo "               Mode in which the snapshot is created"
-    echo "               0:manual; 1:hourly; 2:daily; 3:monthly; 4:yearly"
+    echo "               0:manual; 1:hourly; 2:daily; 3:weekly; 4:monthly; 5:yearly"
     echo ""
 }
 
@@ -172,7 +172,7 @@ create_help() {
     echo ""
     echo "--mode <integer>"
     echo "               Mode in which the snapshot is created"
-    echo "               0:manual; 1:hourly; 2:daily; 3:monthly; 4:yearly"
+    echo "               0:manual; 1:hourly; 2:daily; 3:weekly; 4:monthly; 5:yearly"
     echo ""
 }
 
@@ -194,7 +194,7 @@ remove_help() {
     echo ""
     echo "--mode <integer>"
     echo "               Filter all snapshots of given mode (default: all)"
-    echo "               0:manual; 1:hourly; 2:daily; 3:monthly; 4:yearly"
+    echo "               0:manual; 1:hourly; 2:daily; 3:weekly; 4:monthly; 5:yearly"
     echo ""
 }
 
@@ -278,9 +278,9 @@ scrub_help() {
     echo ""
     echo "-f, --force    Ignore Yes-No-prompt and immediately perform action"
     echo ""
-    echo "--mode <integer>"
+    echo "--mode <str/integer>"
     echo "               Scrub only snapshots of given mode (default: all)"
-    echo "               0:manual; 1:hourly; 2:daily; 3:monthly; 4:yearly"
+    echo "               0:manual; 1:hourly; 2:daily; 3:weekly; 4:monthly; 5:yearly"
     echo ""
 }
 
@@ -544,6 +544,9 @@ blacklist-logs() {
         "daily")
             limit=$BTRSNAP_DAILY_LIMIT
             ;;
+        "weekly")
+            limit=$BTRSNAP_WEEKLY_LIMIT
+            ;;
         "monthly")
             limit=$BTRSNAP_MONTHLY_LIMIT
             ;;
@@ -661,8 +664,9 @@ sub_list() {
                     0 | Man* | man*) BTRSNAP_MODE='manual';;
                     1 | H* | h*) BTRSNAP_MODE='hourly';;
                     2 | D* | d*) BTRSNAP_MODE='daily';;
-                    3 | M* | m*) BTRSNAP_MODE='monthly';;
-                    4 | Y* | y*) BTRSNAP_MODE='yearly';;
+                    3 | W* | w*) BTRSNAP_MODE='weekly';;
+                    4 | M* | m*) BTRSNAP_MODE='monthly';;
+                    5 | Y* | y*) BTRSNAP_MODE='yearly';;
                 esac
                 shift
                 ;;
@@ -807,8 +811,9 @@ sub_create() {
                     0 | Man* | man*) BTRSNAP_MODE='manual';;
                     1 | H* | h*) BTRSNAP_MODE='hourly';;
                     2 | D* | d*) BTRSNAP_MODE='daily';;
-                    3 | M* | m*) BTRSNAP_MODE='monthly';;
-                    4 | Y* | y*) BTRSNAP_MODE='yearly';;
+                    3 | W* | w*) BTRSNAP_MODE='weekly';;
+                    4 | M* | m*) BTRSNAP_MODE='monthly';;
+                    5 | Y* | y*) BTRSNAP_MODE='yearly';;
                 esac
                 shift
                 ;;
@@ -897,8 +902,9 @@ sub_remove() {
                     0 | Man* | man*) BTRSNAP_MODE='manual';;
                     1 | H* | h*) BTRSNAP_MODE='hourly';;
                     2 | D* | d*) BTRSNAP_MODE='daily';;
-                    3 | M* | m*) BTRSNAP_MODE='monthly';;
-                    4 | Y* | y*) BTRSNAP_MODE='yearly';;
+                    3 | W* | w*) BTRSNAP_MODE='weekly';;
+                    4 | M* | m*) BTRSNAP_MODE='monthly';;
+                    5 | Y* | y*) BTRSNAP_MODE='yearly';;
                 esac
                 shift
                 ;;
@@ -1248,8 +1254,9 @@ sub_scrub() {
                     0 | Man* | man*) BTRSNAP_MODE='manual';;
                     1 | H* | h*) BTRSNAP_MODE='hourly';;
                     2 | D* | d*) BTRSNAP_MODE='daily';;
-                    3 | M* | m*) BTRSNAP_MODE='monthly';;
-                    4 | Y* | y*) BTRSNAP_MODE='yearly';;
+                    3 | W* | w*) BTRSNAP_MODE='weekly';;
+                    4 | M* | m*) BTRSNAP_MODE='monthly';;
+                    5 | Y* | y*) BTRSNAP_MODE='yearly';;
                 esac
                 shift
                 ;;
