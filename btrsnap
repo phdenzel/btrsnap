@@ -1,22 +1,18 @@
 #!/bin/bash
 # btrsnap #########
 # @author: phdenzel
-# 
-# This programs works with optional flags and environment variables:
+# @version: 1.0.0
+#
+# @commentary:
+# This programs works with optional flags and environment variables (for defaults):
 #     BTRSNAP_CONF, BTRSNAP_LOG, BTRSNAP_BASEDIR, BTRSNAP_SRC, BTRSNAP_TARGET,
-#     BTRSNAP_MODE, BTRSNAP_WRITABLE, BTRSNAP_TIMEFORMAT, BTRSNAP_WARNINGS
+#     BTRSNAP_MODE, BTRSNAP_WRITABLE, BTRSNAP_TIMEFORMAT, BTRSNAP_WARNINGS,
+#     BTRSNAP_MANUAL_LIMIT, BTRSNAP_MONTHLY_LIMIT, BTRSNAP_WEEKLY_LIMIT,
+#     BTRSNAP_DAILY_LIMIT, BTRSNAP_HOURLY_LIMIT BTRSNAP_YEARLY_LIMIT
 # Recommended use:
 #     Export BTRSNAP_CONF in your .bashrc/.zshrc pointing to an existing file
 #     where you configure btrsnap to your specifications.
-# Note:
-#     For now, snapshots have to reside on the same btrfs device
-# TODO:
-#     - btrsnap-remove: *, mode selection
-#     - add btrsnap-scrub
-#     - compatibility with external devices/drives
-#       (for external devices you need to use btrfs send/receive
-#        and `btrfs property set` ro to false)
-#     - add systemd timers and pacman hooks to automatically run btrsnap
+
 
 PROGNAME=$(basename $0)
 

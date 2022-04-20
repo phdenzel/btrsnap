@@ -250,3 +250,14 @@ BTRSNAP_YEARLY_LIMIT=1
 DRY_RUN=0
 VERBOSE=0
 #+end_src
+
+
+**** TODO
+
+Note, for now, snapshots have to reside on the same btrfs device.
+
+- [ ] btrsnap-remove: * w/ mode selection
+- [ ] compatibility with external devices/drives
+  (for external devices you need to manually use btrfs send/receive
+   and `btrfs property set` ro to false)
+- [ ] pacman hooks to automatically run btrsnap on installs or upgrades
